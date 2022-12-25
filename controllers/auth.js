@@ -2,10 +2,65 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const axios = require("axios");
 const config = require("config");
-const User = require("../models/User");
-
+const dotenv = require("dotenv");
+const { User } = require("../models/User");
+const nodemailer = require("nodemailer");
+const { use } = require("../routes/user");
 let refreshTokens = [];
+dotenv.config();
+
 const authController = {
+  transporter: nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: process.env.USER,
+      pass: process.env.PASS,
+    },
+  }),
+
+  sendMail: async (req, res) => {
+    const otp = Math.floor(100000 + Math.random() * 900000);
+    const user = await User.findById(req.params.id);
+    user.otp = otp;
+    await user.save();
+    console.log(user);
+    const username = user.username;
+    const email = user.email;
+    const mailOptions = {
+      from: "Timphongtro.vn",
+      to: email,
+      subject: "[Timphongtro.vn] Mã xác thực Timphongtro.vn của bạn",
+      html: `<h1>Mã xác thực bí mật Timphongtro.vn</h1>
+      <h2>${username} thân mến,</h2>
+      <p>Đây là mã xác thực bí mật của bạn: <strong>${otp}</strong></p>
+      <p>Mã bí mật này không nên được chia sẻ với bất kỳ ai. Cám ơn bạn đã sử dụng dịch vụ của chúng tôi.</p>
+      <p>Trân trọng,</p>
+      <p>Timphongtro.vn</p> 
+      `,
+    };
+
+    authController.transporter.sendMail(mailOptions, function (err, info) {
+      if (err) {
+        return res.status(400).json(err);
+      } else {
+        console.log("Verification email is sent your gmail account");
+        return res.status(200).json(info);
+      }
+    });
+  },
+
+  verifyEmail: async (req, res) => {
+    const id = req.params.id;
+    const otp = req.body.otp;
+    const user = await User.findById(id);
+    if (user.otp === parseInt(otp)) {
+      user.isVerify = true;
+      const newUser = await user.save();
+      return res.status(200).json({ newUser });
+    } else {
+      return res.status(400).json("Email is not verified");
+    }
+  },
   generateAccessToken: (user) => {
     return jwt.sign(
       {
@@ -58,7 +113,9 @@ const authController = {
               username,
               profilePicture,
               typeAccount,
+              isVerify: true,
               memberCode: "TPT" + memberCode,
+              balance: 1000000,
             });
             console.log(user);
             const refreshToken = authController.generateRefreshToken(user);
@@ -150,75 +207,6 @@ const authController = {
   },
 
   signUpController: async (req, res) => {
-    // if (req.body.googleAccessToken) {
-    //   const { googleAccessToken } = req.body;
-    //   axios
-    //     .get("https://www.googleapis.com/oauth2/v3/userinfo", {
-    //       headers: {
-    //         Authorization: `Bearer ${googleAccessToken}`,
-    //         Accept: "application / json",
-    //       },
-    //     })
-    //     .then(async (response) => {
-    //       const memberCode = Math.floor(100000 + Math.random() * 900000);
-    //       const fullName =
-    //         response.data.given_name + " " + response.data.family_name;
-    //       const username = response.data.email;
-    //       const email = response.data.email;
-    //       const picture =
-    //         response.data.picture ||
-    //         "https://scontent-hkg4-2.xx.fbcdn.net/v/t39.30808-6/248794374_1491385281237517_7930428664753935404_n.jpg?_nc_cat=104&ccb=1-7&_nc_sid=174925&_nc_ohc=5lauKy6zDsMAX9wvFT6&tn=VeXMx7MBEtEDqia-&_nc_ht=scontent-hkg4-2.xx&oh=00_AT9zAmle7fzxSbIGPvrXOsjlUnIraF6SkS8peSiVHZ7rAA&oe=63302978";
-
-    //       const existingUser = await User.findOne({ email });
-    //       if (existingUser) {
-    //         const refreshToken =
-    //           authController.generateRefreshToken(existingUser);
-    //         // Lưu refreshToken vào mảng
-    //         refreshTokens.push(refreshToken);
-    //         res.cookie("refreshToken", refreshToken, {
-    //           httpOnly: true,
-    //           secure: false,
-    //           path: "/",
-    //           sameSite: "strict",
-    //         });
-    //         // access token
-    //         const accessToken = jwt.sign(
-    //           {
-    //             email: existingUser.email,
-    //             id: existingUser._id,
-    //           },
-    //           config.get("JWT_SECRET"),
-    //           { expiresIn: "30d" }
-    //         );
-
-    //         return res
-    //           .status(200)
-    //           .json({ user: existingUser, accessToken, refreshToken });
-    //       } else {
-    //         const user = await User.create({
-    //           email,
-    //           fullName,
-    //           username,
-    //           profilePicture: picture,
-    //           memberCode: "TPT" + memberCode,
-    //         });
-    //         const refreshToken = this.generateRefreshToken(existingUser);
-    //         const accessToken = jwt.sign(
-    //           {
-    //             email: existingUser.email,
-    //             id: existingUser._id,
-    //           },
-    //           config.get("JWT_SECRET"),
-    //           { expiresIn: "30d" }
-    //         );
-
-    //         return res.status(200).json({ user, accessToken, refreshToken });
-    //       }
-    //     })
-    //     .catch((err) => {
-    //       return err;
-    //     });
-    // } else {
     try {
       const username = req.body.username;
       const email = req.body.email;
@@ -226,8 +214,10 @@ const authController = {
       const confirmPassword = req.body.confirmPassword;
       const hashPassword = await bcrypt.hash(password, 12);
       const existingEmail = await User.findOne({ email });
+
       const existingUsername = await User.findOne({ username });
       const memberCode = Math.floor(100000 + Math.random() * 900000);
+
       if (existingUsername) {
         return res.status(400).json("Username existed!");
       } else if (existingEmail) {
@@ -243,6 +233,7 @@ const authController = {
         password: hashPassword,
         email: req.body.email,
         memberCode: "TPT" + memberCode,
+        balance: 1000000,
       });
 
       res.status(200).json({ user });
@@ -255,8 +246,9 @@ const authController = {
   requestRefreshToken: async (req, res) => {
     // Lấy refreshToken từ user
     const refreshToken = req.cookies.refreshToken;
-    if (!refreshToken)
+    if (!refreshToken) {
       return res.status(401).json("You are not authenticated!");
+    }
 
     // Nếu mảng không chứa refresh token cũ thì báo lỗi
     if (!refreshTokens.includes(refreshToken)) {
@@ -293,6 +285,37 @@ const authController = {
       (token) => token !== req.cookies.refreshToken
     );
     res.status(200).json("Logged out!");
+  },
+  updatePassword: async (req, res) => {
+    try {
+      const id = req.params.id;
+      const { oldPassword } = req.body;
+      const { newPassword } = req.body;
+      console.log(oldPassword, newPassword);
+      const user = await User.findById(id);
+      if (oldPassword) {
+        const comparePassword = await bcrypt.compare(
+          oldPassword,
+          user.password
+        );
+        if (comparePassword) {
+          user.password = await bcrypt.hash(newPassword, 12);
+          await user.save();
+          return res.status(200).json({ user });
+        }
+        if (!comparePassword) {
+          return res.status(500).json("incorrect password");
+        }
+      }
+
+      if (!oldPassword && newPassword) {
+        user.password = await bcrypt.hash(newPassword, 12);
+        await user.save();
+        return res.status(200).json({ user });
+      }
+    } catch (error) {
+      return res.status(500).json("incorrect password");
+    }
   },
 };
 

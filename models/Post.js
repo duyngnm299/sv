@@ -13,7 +13,7 @@ const postSchema = new mongoose.Schema(
       required: true,
       maxlength: 100,
     },
-    describe: { type: Array, required: true },
+    describe: { type: Object, required: true },
     area: { type: Number, maxlength: 7 },
     price: { type: Number, default: 0, maxlength: 12 },
     address: { type: String, required: true },
@@ -24,7 +24,7 @@ const postSchema = new mongoose.Schema(
     images: [Object],
     status: {
       type: String,
-      enum: ["deleted", "waiting for approva", "approved"],
+      enum: ["deleted", "waiting for approva", "approved", "expired"],
       default: "waiting for approva",
     },
     postCode: { type: String },
@@ -32,14 +32,17 @@ const postSchema = new mongoose.Schema(
     postType: { type: String },
     startDate: { type: String },
     endDate: { type: String },
-    userInfo: { type: Array },
+    userInfo: { type: Object },
     createdBy: {
-      type: mongoose.Types.ObjectId,
-      ref: "User",
-      required: true,
+      type: [
+        {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+        },
+      ],
     },
   },
   { timestamps: true }
 );
-
-module.exports = mongoose.model("Post", postSchema);
+let Post = mongoose.model("Post", postSchema);
+module.exports = { Post };

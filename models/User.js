@@ -8,6 +8,9 @@ const userSchema = mongoose.Schema({
   fullName: {
     type: String,
   },
+  gender: {
+    type: String,
+  },
   username: {
     type: String,
     required: true,
@@ -15,7 +18,6 @@ const userSchema = mongoose.Schema({
   },
   password: {
     type: String,
-    // required: true,
     minlength: 8,
   },
   email: {
@@ -23,10 +25,25 @@ const userSchema = mongoose.Schema({
     unique: true,
     required: true,
   },
-  profilePicture: {
+  isVerify: {
+    type: Boolean,
+    default: false,
+  },
+  otp: {
+    type: Number,
+  },
+  profilePicture: { type: String },
+  dateOfBirth: { type: String },
+  address: {
     type: String,
   },
-  address: {
+  province: {
+    type: String,
+  },
+  district: {
+    type: String,
+  },
+  ward: {
     type: String,
   },
   phoneNumber: {
@@ -37,11 +54,18 @@ const userSchema = mongoose.Schema({
     default: false,
   },
   post: {
-    type: mongoose.Types.ObjectId,
-    ref: "Post",
+    type: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Post",
+      },
+    ],
   },
+  savedPost: { type: Array },
   balance: { type: Number, default: 0 },
+  identityCard: { type: String },
+  zalo: { type: String },
   typeAccount: { type: String, enum: ["normal", "google"], default: "normal" },
 });
-
-module.exports = mongoose.model("User", userSchema);
+const User = mongoose.model("User", userSchema);
+module.exports = { User };
