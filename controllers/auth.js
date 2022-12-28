@@ -284,8 +284,9 @@ const authController = {
     refreshTokens = refreshTokens.filter(
       (token) => token !== req.cookies.refreshToken
     );
-    res.status(200).json("Logged out!");
+    return res.status(200).json("Logged out!");
   },
+
   updatePassword: async (req, res) => {
     try {
       const id = req.params.id;

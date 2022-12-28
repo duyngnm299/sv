@@ -16,6 +16,7 @@ const createPost = async (req, res, next) => {
       street,
       area,
       price,
+      costPost,
       createdBy,
       userInfo,
       postType,
@@ -49,6 +50,7 @@ const createPost = async (req, res, next) => {
       ward,
       street,
       area,
+      costPost,
       price,
       images: imagesArray,
       createdBy,
@@ -59,20 +61,36 @@ const createPost = async (req, res, next) => {
       startDate,
       endDate,
     });
-    const savedBook = await newPost.save();
+    const savedPost = await newPost.save();
     if (req.body.createdBy) {
       const createdBy = User.findById(req.body.createdBy);
-      console.log(createdBy);
       const update = await createdBy.updateOne({
-        $push: { post: savedBook._id },
+        $push: { post: savedPost._id },
       });
-      console.log("update: " + { update });
     }
-    res.status(200).json({ savedBook });
+    res.status(200).json({ savedPost });
   } catch (err) {
     res.status(400).json({ message: err.message });
   }
 };
+
+const updateExpiredPost = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    const post = await Post.findByIdAndUpdate(
+      id,
+      {
+        status,
+      },
+      { new: true }
+    );
+    return res.status(200).json({ post });
+  } catch (error) {
+    return error;
+  }
+};
+
 const getAllPost = async (req, res, next) => {
   try {
     const posts = await Post.find();
@@ -103,7 +121,7 @@ const SearchFilterPost = async (req, res) => {
   const areaLte =
     (req.query.areaLte && parseInt(req.query.areaLte)) || 99999999999;
   const type = req.query.type || "";
-  // const status = req.query.status || "approved";
+  const status = req.query.status || "";
   //province
   const district = req.query.district || "";
   console.log(price_gte, price_lte);
@@ -128,6 +146,7 @@ const SearchFilterPost = async (req, res) => {
         { category_name: { $regex: ctgrName } },
         { title: { $regex: title } },
         { postType: { $regex: type } },
+        { status: { $regex: status } },
 
         // { status: { $regex: status } },
       ],
@@ -172,31 +191,60 @@ const fileSizeFormatter = (bytes, decimal) => {
 
 const updatePost = async (req, res) => {
   try {
-    const id = req.params.id;
-    const { title, describe, address, price } = req.body;
-
-    const post = await Post.findByIdAndUpdate(
+    const { id } = req.params;
+    const {
+      category_id,
+      category_name,
+      title,
+      describe,
+      address,
+      province,
+      district,
+      ward,
+      street,
+      area,
+      price,
+      userInfo,
+    } = req.body;
+    let imagesArray = [];
+    const images = [...req.files];
+    images.forEach((element) => {
+      const image = {
+        imageName: element.originalname,
+        imagePath: element.path,
+        imageType: element.mimetype,
+        imageSize: fileSizeFormatter(element.size, 2),
+      };
+      imagesArray.push(image);
+    });
+    const updatePost = await Post.findByIdAndUpdate(
       id,
       {
+        category_id,
+        category_name,
         title,
         describe,
         address,
+        province,
+        district,
+        ward,
+        street,
+        area,
         price,
+        images: imagesArray,
+        userInfo,
       },
       { new: true }
     );
-
-    res.status(200).json({ post });
-  } catch (error) {
-    console.log(error);
-    return res.status(400).json({ message: error });
+    return res.status(200).json({ updatePost });
+  } catch (err) {
+    return res.status(400).json({ message: err.message });
   }
 };
 
 const getPostOfUser = async (req, res) => {
   try {
     const id = req.params.id;
-
     const posts = await Post.find({ createdBy: id });
 
     res.status(200).json({ posts });
@@ -256,6 +304,35 @@ const getPostListOfUser = async (req, res) => {
   }
 };
 
+const getAllPostOfUser = async (req, res) => {
+  //sort
+  const { _sort } = req.query;
+  const [field, condition] = _sort?.split(":") || ["createdAt", "desc"];
+  const createdBy = req.query.createdBy || "";
+  const title = req.query.title || "";
+  const district = req.query.district || "";
+  const status = req.query.status || "";
+  try {
+    const post = await Post.find({
+      $and: [
+        // { price: { $gte: price_gte, $lte: price_lte } },
+        // { area: { $gte: areaGte, $lte: areaLte } },
+        // { category_name: { $regex: ctgrName } },
+        // { postType: { $regex: type } },
+        { district: { $regex: district } },
+        { title: { $regex: title } },
+        { createdBy: createdBy },
+        { status: { $regex: status } },
+      ],
+    }).sort({ [field]: condition });
+    return res.status(200).json({ post });
+    // }
+  } catch (err) {
+    console.log(err);
+    res.status(400).json({ message: err.message });
+  }
+};
+
 const checkExpiredPost = async (req, res) => {
   try {
     const id = req.params.id;
@@ -269,6 +346,15 @@ const checkExpiredPost = async (req, res) => {
     return res.status(400).json(error);
   }
 };
+const deletedPost = async (req, res) => {
+  try {
+    id = req.params.id;
+    const post = await Post.findByIdAndDelete(id);
+    return res.status(200).json({ post });
+  } catch (error) {
+    return res.status(500).json({ error });
+  }
+};
 module.exports = {
   createPost,
   getAllPost,
@@ -277,4 +363,7 @@ module.exports = {
   getPostOfUser,
   checkExpiredPost,
   getPostListOfUser,
+  getAllPostOfUser,
+  deletedPost,
+  updateExpiredPost,
 };

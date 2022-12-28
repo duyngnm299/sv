@@ -27,6 +27,7 @@ const postSchema = new mongoose.Schema(
       enum: ["deleted", "waiting for approva", "approved", "expired"],
       default: "waiting for approva",
     },
+    costPost: { type: Number },
     postCode: { type: String },
     numberDayPost: { type: Number },
     postType: { type: String },

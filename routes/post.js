@@ -11,6 +11,9 @@ const {
   getPostListOfUser,
   checkExpiredPost,
   SearchFilterPost,
+  deletedPost,
+  getAllPostOfUser,
+  updateExpiredPost,
 } = require("../controllers/post");
 const middlewareController = require("../middleware/middleware");
 router.post("/", upload.array("images"), createPost);
@@ -20,7 +23,7 @@ router.get("/", getAllPost);
 router.get("/:id", getPostOfUser);
 router.post("/list", getPostListOfUser);
 router.post("/search", SearchFilterPost);
-
-// router.get("/images", getImageOnPost);
-
+router.post("/deleted/:id", deletedPost);
+router.post("/allPostOfUser", getAllPostOfUser);
+router.post("/update-expired/:id", updateExpiredPost);
 module.exports = router;
